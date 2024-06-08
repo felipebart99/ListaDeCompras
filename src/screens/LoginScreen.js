@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 
-export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+export default function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+
+  const checkBiometricAvailability = async () => {
+    const isAvailable = await LocalAuthentication.hasHardwareAsync();
+    setIsBiometricAvailable(isAvailable);
+  };
 
   const handleLogin = async () => {
-    const user = JSON.parse(await AsyncStorage.getItem('user'));
-    if (user && user.username === username && user.password === password) {
-      setMessage('Login successful!');
+    const userString = await AsyncStorage.getItem('user');
+    const user = JSON.parse(userString);
+    if (user && user.email === email && user.password === password) {
+      navigation.navigate('Home');
     } else {
-      setMessage('Invalid username or password');
+      alert('Invalid email or password');
+    }
+  };
+
+  const authenticateWithBiometrics = async () => {
+    const result = await LocalAuthentication.authenticateAsync();
+    if (result.success) {
+      // Autenticação bem-sucedida, faça algo como navegar para a próxima tela
+      navigation.navigate('Home');
+    } else {
+      // Autenticação falhou, exiba uma mensagem de erro
+      alert('Biometric authentication failed');
     }
   };
 
@@ -21,9 +43,9 @@ export default function LoginScreen() {
       <Text style={styles.title}>Login</Text>
       <TextInput
         style={styles.input}
-        placeholder="Username"
-        value={username}
-        onChangeText={setUsername}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
       />
       <TextInput
         style={styles.input}
@@ -32,8 +54,15 @@ export default function LoginScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Login" onPress={handleLogin} />
-      {message ? <Text>{message}</Text> : null}
+      <View style={styles.buttonContainer}>
+        <Button title="Login" onPress={handleLogin} />
+      </View>
+      {isBiometricAvailable && (
+        <TouchableOpacity style={[styles.buttonContainer, styles.blackButton]} onPress={authenticateWithBiometrics}>
+          <Text style={styles.buttonText}>Authenticate with Biometrics</Text>
+        </TouchableOpacity>
+      )}
+      
     </View>
   );
 }
@@ -55,5 +84,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
     paddingLeft: 10,
+  },
+  buttonContainer: {
+    marginBottom: 20,
+  },
+  blackButton: {
+    backgroundColor: 'black',
+    paddingVertical: 15,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
   },
 });
